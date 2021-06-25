@@ -1,0 +1,8 @@
+selenium
+pytest
+pytest-xdist
+requests
+allure-pytest
+Faker
+sqlalchemy
+pymysql

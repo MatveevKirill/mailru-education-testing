@@ -1,0 +1,2 @@
+class NotEqualException(Exception):
+    pass

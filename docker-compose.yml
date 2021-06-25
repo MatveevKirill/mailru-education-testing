@@ -1,0 +1,82 @@
+version: "2.1"
+services:
+  selenoid:
+    image: aerokube/selenoid
+    container_name: selenoid
+    networks:
+      - net
+    volumes:
+      - ${PWD}/configs/selenoid:/etc/selenoid
+      - ${WORKSPACE}/_data/selenoid/logs:/opt/selenoid/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: [ "-conf", "/etc/selenoid/browsers.json", "-container-network", "${NETWORK_NAME}" ]
+  percona:
+    image: percona:latest
+    container_name: perconadb
+    environment:
+      - MYSQL_ROOT_HOST
+      - MYSQL_ROOT_PASSWORD
+    healthcheck:
+      test: ["CMD", "mysqladmin", "-uroot", "-p${MYSQL_ROOT_PASSWORD}", "ping", "-h", "127.0.0.1"]
+      timeout: 1s
+      retries: 30
+    tty: true
+    networks:
+      - net
+    volumes:
+    - ./meta/percona-sql/databases.sql:/docker-entrypoint-initdb.d/dump.sql
+    depends_on:
+      selenoid:
+        condition: service_started
+  vk_api:
+    image: vk_api:latest
+    container_name: vk_api
+    environment:
+      - VK_MOCK_URL
+      - VK_MOCK_PORT
+    networks:
+      - net
+    depends_on:
+      percona:
+       condition: service_healthy
+  myapp:
+    image: myapp:latest
+    container_name: myapp
+    ports:
+    - "${APP_PORT}:${APP_PORT}"
+    tty: true
+    volumes:
+      - ./configs:/conf
+    links:
+      - percona:perconadb
+      - vk_api:vk_api
+    command: /app/myapp --config=/conf/app.conf
+    depends_on:
+      - vk_api
+    networks:
+      - net
+    healthcheck:
+      test: ["CMD", "curl", "http://${APP_HOST}:{APP_PORT}/status"]
+  tests:
+    image: tests:latest
+    container_name: tests
+    environment:
+      - APP_HOST
+      - APP_PORT
+      - MYSQL_HOST
+      - MYSQL_PORT
+      - MYSQL_USER
+      - MYSQL_USER_PASS
+      - SELENOID_HOST
+    volumes:
+    - ${WORKSPACE}/alluredir:/tmp/allure-report
+    - ${WORKSPACE}/logs:/tmp/logs
+    networks:
+      - net
+    depends_on:
+      myapp:
+        condition: service_started
+networks:
+  net:
+    name: ${NETWORK_NAME}
+    external: true
