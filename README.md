@@ -36,7 +36,7 @@ cd final_project
 docker network create ${NETWORK_NAME}
 
 # Запуск compose.
-docker-compose --file prod.docker-compose.yml --abort-on-container-exit
+docker-compose up --abort-on-container-exit
 ```
 7) В "<b>Послесборочной операции</b>" выбираем шаг "<b>Execute scripts</b>" и выполняем команду shell:
 ```shell
